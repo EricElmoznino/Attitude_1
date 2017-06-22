@@ -1,14 +1,10 @@
 import tensorflow as tf
 from tensorflow.contrib.tensorboard.plugins import projector
-import Helpers
+import Helpers as hp
 import numpy as np
 import shutil
 import os
 import time
-from PIL import Image
-import math
-import webbrowser
-from subprocess import Popen, PIPE
 
 epochs = 10
 batch_size = 50
@@ -16,53 +12,6 @@ input_size = 60000
 split_sizes = [1000, 500]
 merged_sizes = [1000, 200]
 
-def open_tensorboard():
-    tensorboard = Popen(['tensorboard', '--logdir=~/Dropbox/Programming/Python/Attitude_1/train'],
-                        stdout=PIPE, stderr=PIPE)
-    time.sleep(5)
-    webbrowser.open('http://0.0.0.0:6006')
-    while input('Press <q> to quit') != 'q':
-        continue
-    tensorboard.terminate()
-
-def log_step(step, total_steps, start_time, angle_error):
-    progress = int(step/float(total_steps) * 100)
-
-    seconds = time.time() - start_time
-    m, s = divmod(seconds, 60)
-    h, m = divmod(m, 60)
-
-    print(str(progress) + '%\t|\t',
-          int(h), 'hours,', int(m), 'minutes,', int(s), 'seconds\t|\t',
-          'Step:', step, '/', total_steps, '\t|\t',
-          'Average Angle Error (Degrees):', angle_error*180/math.pi)
-
-def log_epoch(epoch, total_epochs, angle_error):
-    print('\nEpoch', epoch, 'completed out of', total_epochs,
-          '\t|\tAverage Angle Error (Degrees):', angle_error*180/math.pi)
-
-def log_generic(angle_error, set_name):
-    print('Average Angle Error (Degrees) on', set_name, 'set:', angle_error*180/math.pi, '\n')
-
-def images_to_batch(image_data):
-    batch_input = []
-    batch_labels = []
-    for file_l, file_r, attitude in image_data:
-        input_left = (np.asarray(Image.open(file_l)) / 255).flatten()
-        input_right = (np.asarray(Image.open(file_r)) / 255).flatten()
-        batch_input.append(np.concatenate((input_left, input_right)))
-        batch_labels.append(attitude)
-    return batch_input, batch_labels
-
-def weight_variables(shape):
-    initial = tf.truncated_normal_initializer(stddev=0.1)
-    return tf.get_variable('weights', shape=shape,
-                           initializer=initial)
-
-def bias_variables(shape):
-    initial = tf.constant_initializer(0.1)
-    return tf.get_variable('biases', shape=shape,
-                           initializer=initial)
 
 input_data = tf.placeholder(tf.float32, shape=[None, input_size], name='input')
 output_labels = tf.placeholder(tf.float32, shape=[None, 3], name='labels')
@@ -119,32 +68,32 @@ def build_model():
     with tf.variable_scope('model'):
         input_data_lr = tf.split(input_data, 2, axis=1)
         with tf.variable_scope('layer_1'):
-            weights = weight_variables([input_size/2, split_sizes[0]])
-            biases = bias_variables([split_sizes[0]])
+            weights = hp.weight_variables([input_size/2, split_sizes[0]])
+            biases = hp.bias_variables([split_sizes[0]])
             hl1 = tf.matmul(input_data_lr[0], weights) + biases
             hl1 = tf.nn.relu(hl1)
             hr1 = tf.matmul(input_data_lr[1], weights) + biases
             hr1 = tf.nn.relu(hr1)
         with tf.variable_scope('layer_2'):
-            weights = weight_variables([split_sizes[0], split_sizes[1]])
-            biases = bias_variables([split_sizes[1]])
+            weights = hp.weight_variables([split_sizes[0], split_sizes[1]])
+            biases = hp.bias_variables([split_sizes[1]])
             hl2 = tf.matmul(hl1, weights) + biases
             hl2 = tf.nn.relu(hl2)
             hr2 = tf.matmul(hr1, weights) + biases
             hr2 = tf.nn.relu(hr2)
         with tf.variable_scope('layer_3'):
-            weights = weight_variables([split_sizes[1], merged_sizes[0]])
-            biases = bias_variables([merged_sizes[0]])
+            weights = hp.weight_variables([split_sizes[1], merged_sizes[0]])
+            biases = hp.bias_variables([merged_sizes[0]])
             h3 = tf.matmul(hl2, weights) + tf.matmul(hr2, weights) + biases
             h3 = tf.nn.relu(h3)
         with tf.variable_scope('layer_4'):
-            weights = weight_variables([merged_sizes[0], merged_sizes[1]])
-            biases = bias_variables([merged_sizes[1]])
+            weights = hp.weight_variables([merged_sizes[0], merged_sizes[1]])
+            biases = hp.bias_variables([merged_sizes[1]])
             h4 = tf.matmul(h3, weights) + biases
             h4 = tf.nn.relu(h4)
         with tf.variable_scope('layer_5'):
-            weights = weight_variables([merged_sizes[1], 3])
-            biases = bias_variables([3])
+            weights = hp.weight_variables([merged_sizes[1], 3])
+            biases = hp.bias_variables([3])
             output = tf.matmul(h4, weights) + biases
         output = tf.nn.dropout(output, keep_prob=keep_prob)
     return output
@@ -178,7 +127,7 @@ def train(model, train_data, validation_data, test_data):
             epoch_angle_error = 0
 
             for batch in batches:
-                batch_input, batch_labels = images_to_batch(batch)
+                batch_input, batch_labels = hp.images_to_batch(batch)
 
                 if step % max(int(nSteps/1000), 1) == 0:
                     _, a, s = sess.run([optimizer, angle_error, summaries],
@@ -197,20 +146,20 @@ def train(model, train_data, validation_data, test_data):
                 epoch_angle_error += a
                 step += 1
 
-            log_epoch(epoch, epochs, epoch_angle_error/nBatches)
-            val_input, val_labels = images_to_batch(validation_data)
+            hp.log_epoch(epoch, epochs, epoch_angle_error/nBatches)
+            val_input, val_labels = hp.images_to_batch(validation_data)
             val_angle_error = run_scalar_in_batches(sess, angle_error, val_input, val_labels)
-            log_generic(val_angle_error, 'validation')
+            hp.log_generic(val_angle_error, 'validation')
 
-        test_input, test_labels = images_to_batch(test_data)
+        test_input, test_labels = hp.images_to_batch(test_data)
         test_angle_error = run_scalar_in_batches(sess, angle_error, test_input, test_labels)
-        log_generic(test_angle_error, 'test')
+        hp.log_generic(test_angle_error, 'test')
         saver.save(sess, os.path.join(train_path, 'model.ckpt'))
 
         create_embeddings(sess, model, test_input, test_labels, train_path)
 
 def predict(model, data):
-    model_input, _ = images_to_batch(data)
+    model_input, _ = hp.images_to_batch(data)
     saver = tf.train.Saver()
 
     with tf.Session() as sess:
