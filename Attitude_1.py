@@ -6,36 +6,47 @@ import shutil
 import os
 import time
 
-epochs = 20
+epochs = 10
 batch_size = 50
-input_size = 60000
+img_shape = [100, 100, 3]
+label_shape = [3]
 
-input_data = tf.placeholder(tf.float32, shape=[None, input_size], name='input')
-output_labels = tf.placeholder(tf.float32, shape=[None, 3], name='labels')
+left_img_placeholder = tf.placeholder(tf.float32, shape=[None] + img_shape, name='left_eye')
+right_img_placeholder = tf.placeholder(tf.float32, shape=[None] + img_shape, name='right_eye')
+labels_placeholder = tf.placeholder(tf.float32, shape=[None] + label_shape, name='labels')
 with tf.variable_scope('hyperparameters'):
-    keep_prob = tf.placeholder(tf.float32, name='dropout_keep_probability')
+    keep_prob_placeholder = tf.placeholder(tf.float32, name='dropout_keep_probability')
 
-train_path = os.path.join('./', 'train')
+train_path = './train'
+train_data_path = '/Users/Eric/Desktop/train_data'
+test_data_path = '/Users/Eric/Desktop/test_data'
+validation_data_path = '/Users/Eric/Desktop/validation_data'
 
-def run_scalar_in_batches(sess, model, inputs, labels):
-    nBatches = int(len(inputs) / batch_size)
-    batch_inputs = [inputs[i*batch_size:(i+1)*batch_size] for i in range(nBatches)]
-    batch_labels = [labels[i*batch_size:(i+1)*batch_size] for i in range(nBatches)]
-    res = 0
-    for inp, lbl in zip(batch_inputs, batch_labels):
-        res += sess.run(model,
-                        feed_dict={input_data: inp,
-                                   output_labels: lbl,
-                                   keep_prob: 1.0})
-    return res/nBatches
 
-def create_embeddings(sess, model, inputs, labels, train_path):
-    predictions = np.ndarray([0, model.shape[1]])
-    for inp in inputs:
+def loss_for_queue(sess, loss, queue, n_batches):
+    error = 0
+    for batch in range(n_batches):
+        left_img, right_img, labels = sess.run(queue)
+        error += sess.run(loss,
+                          feed_dict={left_img_placeholder: left_img,
+                                     right_img_placeholder: right_img,
+                                     labels_placeholder: labels,
+                                     keep_prob_placeholder: 1.0})
+    return error / n_batches
+
+
+def embeddings_for_queue(sess, model, queue, n_batches, train_path):
+    predictions = np.ndarray([0, 3])
+    prediction_labels = np.ndarray([0, 3])
+    for batch in range(n_batches):
+        left_img, right_img, labels = sess.run(queue)
         prediction = sess.run(model,
-                              feed_dict={input_data: [inp],
-                                         keep_prob: 1.0})
+                              feed_dict={left_img_placeholder: left_img,
+                                         right_img_placeholder: right_img,
+                                         labels_placeholder: labels,
+                                         keep_prob_placeholder: 1.0})
         predictions = np.concatenate((predictions, prediction))
+        prediction_labels = np.concatenate((prediction_labels, labels))
 
     with tf.variable_scope('embedding'):
         embedding_var = tf.get_variable('embedding_var', shape=[predictions.shape[0], predictions.shape[1]],
@@ -50,7 +61,7 @@ def create_embeddings(sess, model, inputs, labels, train_path):
 
     # data labels
     with open(metadata_file_path, 'w') as f:
-        for label in labels:
+        for label in prediction_labels:
             f.write(str(label) + '\n')
 
     writer = tf.summary.FileWriter(train_path)
@@ -58,216 +69,117 @@ def create_embeddings(sess, model, inputs, labels, train_path):
     embed_saver = tf.train.Saver([embedding_var])
     embed_saver.save(sess, os.path.join(train_path, 'embeddding.ckpt'))
 
-def build_model_1():
+
+def build_model_conv():
+    filter_sizes = [10]
+    features_sizes = [15]
+    hidden_sizes = [1000]
+
+    with tf.variable_scope('model'):
+
+        with tf.variable_scope('convolution'):
+            layer = 1
+            left_units = left_img_placeholder
+            right_units = right_img_placeholder
+            for filter_size, feature_size in zip(filter_sizes, features_sizes):
+                with tf.variable_scope('convolution_layer_' + str(layer)) as scope:
+                    left_units = hp.convolve(left_units, [filter_size, filter_size],
+                                             left_units.shape[-1], feature_size)
+                    left_units = tf.nn.relu(left_units)
+                    scope.reuse_variables()
+                    right_units = hp.convolve(right_units, [filter_size, filter_size],
+                                              right_units.shape[-1], feature_size)
+                    right_units = tf.nn.relu(right_units)
+                layer += 1
+
+        with tf.variable_scope('fully_connected'):
+            layer = 1
+            num_units = left_units.shape[1] * left_units.shape[2] * left_units.shape[3]
+            left_units = tf.reshape(left_units, [-1, int(num_units)])
+            right_units = tf.reshape(right_units, [-1, int(num_units)])
+            hidden_units = tf.concat([left_units, right_units], axis=1)
+            for hidden_size in hidden_sizes:
+                with tf.variable_scope('hidden_layer_' + str(layer)):
+                    weights = hp.weight_variables([hidden_units.shape[1], hidden_size])
+                    biases = hp.bias_variables([hidden_size])
+                    hidden_units = tf.matmul(hidden_units, weights) + biases
+                    hidden_units = tf.nn.relu(hidden_units)
+                layer += 1
+
+        with tf.variable_scope('output'):
+            weights = hp.weight_variables([hidden_units.shape[1], 3])
+            model = tf.matmul(hidden_units, weights)
+            model = tf.nn.dropout(model, keep_prob=keep_prob_placeholder)
+
+    return model, tf.train.Saver()
+
+
+def build_model_normal():
     split_sizes = [1000, 500]
     merged_sizes = [1000, 200]
-    with tf.variable_scope('model'):
-        input_data_lr = tf.split(input_data, 2, axis=1)
-        with tf.variable_scope('layer_1'):
-            weights = hp.weight_variables([input_size/2, split_sizes[0]])
-            biases = hp.bias_variables([split_sizes[0]])
-            hl1 = tf.matmul(input_data_lr[0], weights) + biases
-            hl1 = tf.nn.relu(hl1)
-            hr1 = tf.matmul(input_data_lr[1], weights) + biases
-            hr1 = tf.nn.relu(hr1)
-        with tf.variable_scope('layer_2'):
-            weights = hp.weight_variables([split_sizes[0], split_sizes[1]])
-            biases = hp.bias_variables([split_sizes[1]])
-            hl2 = tf.matmul(hl1, weights) + biases
-            hl2 = tf.nn.relu(hl2)
-            hr2 = tf.matmul(hr1, weights) + biases
-            hr2 = tf.nn.relu(hr2)
-        with tf.variable_scope('layer_3'):
-            weights = hp.weight_variables([split_sizes[1], merged_sizes[0]])
-            biases = hp.bias_variables([merged_sizes[0]])
-            h3 = tf.matmul(hl2, weights) + tf.matmul(hr2, weights) + biases
-            h3 = tf.nn.relu(h3)
-        with tf.variable_scope('layer_4'):
-            weights = hp.weight_variables([merged_sizes[0], merged_sizes[1]])
-            biases = hp.bias_variables([merged_sizes[1]])
-            h4 = tf.matmul(h3, weights) + biases
-            h4 = tf.nn.relu(h4)
-        with tf.variable_scope('layer_5'):
-            weights = hp.weight_variables([merged_sizes[1], 3])
-            biases = hp.bias_variables([3])
-            output = tf.matmul(h4, weights) + biases
-        output = tf.nn.dropout(output, keep_prob=keep_prob)
-    return output, tf.train.Saver(keep_checkpoint_every_n_hours=1)
 
-def build_model_2():
-    split_sizes = [1000, 500]
-    merged_sizes = [1000, 200, 20]
     with tf.variable_scope('model'):
-        input_data_lr = tf.split(input_data, 2, axis=1)
-        with tf.variable_scope('layer_1'):
-            weights = hp.weight_variables([input_size / 2, split_sizes[0]])
-            biases = hp.bias_variables([split_sizes[0]])
-            hl1 = tf.matmul(input_data_lr[0], weights) + biases
-            hl1 = tf.nn.relu(hl1)
-            hr1 = tf.matmul(input_data_lr[1], weights) + biases
-            hr1 = tf.nn.relu(hr1)
-        with tf.variable_scope('layer_2'):
-            weights = hp.weight_variables([split_sizes[0], split_sizes[1]])
-            biases = hp.bias_variables([split_sizes[1]])
-            hl2 = tf.matmul(hl1, weights) + biases
-            hl2 = tf.nn.relu(hl2)
-            hr2 = tf.matmul(hr1, weights) + biases
-            hr2 = tf.nn.relu(hr2)
-        with tf.variable_scope('layer_3'):
-            weights = hp.weight_variables([split_sizes[1], merged_sizes[0]])
-            biases = hp.bias_variables([merged_sizes[0]])
-            h3 = tf.matmul(hl2, weights) + tf.matmul(hr2, weights) + biases
-            h3 = tf.nn.relu(h3)
-        with tf.variable_scope('layer_4'):
-            weights = hp.weight_variables([merged_sizes[0], merged_sizes[1]])
-            biases = hp.bias_variables([merged_sizes[1]])
-            h4 = tf.matmul(h3, weights) + biases
-            h4 = tf.nn.relu(h4)
-        with tf.variable_scope('layer_5'):
-            weights = hp.weight_variables([merged_sizes[1], merged_sizes[2]])
-            biases = hp.bias_variables([merged_sizes[2]])
-            h5 = tf.matmul(h4, weights) + biases
-            h5 = tf.nn.relu(h5)
-        with tf.variable_scope('layer_6'):
-            weights = hp.weight_variables([merged_sizes[2], 3])
-            biases = hp.bias_variables([3])
-            output = tf.matmul(h5, weights) + biases
-        output = tf.nn.dropout(output, keep_prob=keep_prob)
-    return output, tf.train.Saver(keep_checkpoint_every_n_hours=1)
 
-def build_model_3():
-    split_sizes = [1000, 500]
-    merged_sizes = [1000, 200, 20]
+        with tf.variable_scope('split'):
+            layer = 1
+            num_units = img_shape[0] * img_shape[1] * img_shape[2]
+            left_units = tf.reshape(left_img_placeholder, [-1, num_units])
+            right_units = tf.reshape(right_img_placeholder, [-1, num_units])
+            for split_size in split_sizes:
+                with tf.variable_scope('layer_' + str(layer)):
+                    weights = hp.weight_variables([left_units.shape[1], split_size])
+                    biases = hp.bias_variables([split_size])
+                    left_units = tf.matmul(left_units, weights) + biases
+                    left_units = tf.nn.relu(left_units)
+                    right_units = tf.matmul(right_units, weights) + biases
+                    right_units = tf.nn.relu(right_units)
+                layer += 1
+
+        with tf.variable_scope('merged'):
+            layer = 1
+            merged_units = tf.concat([left_units, right_units], axis=1)
+            for merged_size in merged_sizes:
+                with tf.variable_scope('layer_' + str(layer)):
+                    weights = hp.weight_variables([merged_units.shape[1], merged_size])
+                    biases = hp.bias_variables([merged_size])
+                    merged_units = tf.matmul(merged_units, weights) + biases
+                    merged_units = tf.nn.relu(merged_units)
+                layer += 1
+
+        with tf.variable_scope('output'):
+            weights = hp.weight_variables([merged_units.shape[1], 3])
+            model = tf.matmul(merged_units, weights)
+            model = tf.nn.dropout(model, keep_prob=keep_prob_placeholder)
+
+    return model, tf.train.Saver()
+
+def build_model_simple():
     with tf.variable_scope('model'):
-        input_data_lr = tf.split(input_data, 2, axis=1)
-        with tf.variable_scope('layer_1'):
-            weights = hp.weight_variables([input_size / 2, split_sizes[0]])
-            biases = hp.bias_variables([split_sizes[0]])
-            hl1 = tf.matmul(input_data_lr[0], weights) + biases
-            hl1 = tf.nn.relu(hl1)
-            hr1 = tf.matmul(input_data_lr[1], weights) + biases
-            hr1 = tf.nn.relu(hr1)
-        with tf.variable_scope('layer_2'):
-            weights = hp.weight_variables([split_sizes[0], split_sizes[1]])
-            biases = hp.bias_variables([split_sizes[1]])
-            hl2 = tf.matmul(hl1, weights) + biases
-            hl2 = tf.nn.relu(hl2)
-            hr2 = tf.matmul(hr1, weights) + biases
-            hr2 = tf.nn.relu(hr2)
-        with tf.variable_scope('layer_3'):
-            weights = hp.weight_variables([split_sizes[1], merged_sizes[0]])
-            biases = hp.bias_variables([merged_sizes[0]])
-            h3 = tf.matmul(hl2, weights) + tf.matmul(hr2, weights) + biases
-            h3 = tf.nn.relu(h3)
-        with tf.variable_scope('layer_4'):
-            weights = hp.weight_variables([merged_sizes[0], merged_sizes[1]])
-            biases = hp.bias_variables([merged_sizes[1]])
-            h4 = tf.matmul(h3, weights) + biases
-            h4 = tf.nn.relu(h4)
-        with tf.variable_scope('layer_5'):
-            weights = hp.weight_variables([merged_sizes[1], merged_sizes[2]])
-            biases = hp.bias_variables([merged_sizes[2]])
-            h5 = tf.matmul(h4, weights) + biases
-            h5 = tf.nn.relu(h5)
-        with tf.variable_scope('layer_6'):
-            weights = hp.weight_variables([merged_sizes[2], 3])
-            biases = hp.bias_variables([3])
-            output = tf.matmul(h5, weights) + biases
-            output = tf.nn.sigmoid(output) - 0.5
-        output = tf.nn.dropout(output, keep_prob=keep_prob)
-    return output, tf.train.Saver(keep_checkpoint_every_n_hours=1)
+        left_units = tf.reshape(left_img_placeholder, [-1, 30000])
+        right_units = tf.reshape(right_img_placeholder, [-1, 30000])
+        layer = tf.concat([left_units, right_units], axis=1)
+        weights = hp.weight_variables([60000, 3])
+        model = tf.matmul(layer, weights)
+        model = tf.nn.dropout(model, keep_prob=keep_prob_placeholder)
+    return model, tf.train.Saver()
 
-def build_model_4():
-    split_sizes = [1000, 500]
-    merged_sizes = [1000, 200, 20]
-    with tf.variable_scope('model'):
-        input_data_lr = tf.split(input_data, 2, axis=1)
-        with tf.variable_scope('layer_1'):
-            with tf.variable_scope('left'):
-                weights = hp.weight_variables([input_size / 2, split_sizes[0]])
-                biases = hp.bias_variables([split_sizes[0]])
-                hl1 = tf.matmul(input_data_lr[0], weights) + biases
-                hl1 = tf.nn.relu(hl1)
-            with tf.variable_scope('right'):
-                weights = hp.weight_variables([input_size / 2, split_sizes[0]])
-                biases = hp.bias_variables([split_sizes[0]])
-                hr1 = tf.matmul(input_data_lr[1], weights) + biases
-                hr1 = tf.nn.relu(hr1)
-        with tf.variable_scope('layer_2'):
-            with tf.variable_scope('left'):
-                weights = hp.weight_variables([split_sizes[0], split_sizes[1]])
-                biases = hp.bias_variables([split_sizes[1]])
-                hl2 = tf.matmul(hl1, weights) + biases
-                hl2 = tf.nn.relu(hl2)
-            with tf.variable_scope('right'):
-                weights = hp.weight_variables([split_sizes[0], split_sizes[1]])
-                biases = hp.bias_variables([split_sizes[1]])
-                hr2 = tf.matmul(hr1, weights) + biases
-                hr2 = tf.nn.relu(hr2)
-        with tf.variable_scope('layer_3'):
-            weights = hp.weight_variables([split_sizes[1], merged_sizes[0]])
-            biases = hp.bias_variables([merged_sizes[0]])
-            h3 = tf.matmul(hl2, weights) + tf.matmul(hr2, weights) + biases
-            h3 = tf.nn.relu(h3)
-        with tf.variable_scope('layer_4'):
-            weights = hp.weight_variables([merged_sizes[0], merged_sizes[1]])
-            biases = hp.bias_variables([merged_sizes[1]])
-            h4 = tf.matmul(h3, weights) + biases
-            h4 = tf.nn.relu(h4)
-        with tf.variable_scope('layer_5'):
-            weights = hp.weight_variables([merged_sizes[1], merged_sizes[2]])
-            biases = hp.bias_variables([merged_sizes[2]])
-            h5 = tf.matmul(h4, weights) + biases
-            h5 = tf.nn.relu(h5)
-        with tf.variable_scope('layer_6'):
-            weights = hp.weight_variables([merged_sizes[2], 3])
-            biases = hp.bias_variables([3])
-            output = tf.matmul(h5, weights) + biases
-        output = tf.nn.dropout(output, keep_prob=keep_prob)
-    return output, tf.train.Saver(keep_checkpoint_every_n_hours=1)
 
-def build_model_5():
-    hidden_layers = [2000, 1000, 1000, 200, 20]
-    with tf.variable_scope('model'):
-        with tf.variable_scope('layer_1'):
-            weights = hp.weight_variables([input_size, hidden_layers[0]])
-            biases = hp.bias_variables([hidden_layers[0]])
-            h1 = tf.matmul(input_data, weights) + biases
-            h1 = tf.nn.relu(h1)
-        with tf.variable_scope('layer_2'):
-            weights = hp.weight_variables([hidden_layers[0], hidden_layers[1]])
-            biases = hp.bias_variables([hidden_layers[1]])
-            h2 = tf.matmul(h1, weights) + biases
-            h2 = tf.nn.relu(h2)
-        with tf.variable_scope('layer_3'):
-            weights = hp.weight_variables([hidden_layers[1], hidden_layers[2]])
-            biases = hp.bias_variables([hidden_layers[2]])
-            h3 = tf.matmul(h2, weights) + biases
-            h3 = tf.nn.relu(h3)
-        with tf.variable_scope('layer_4'):
-            weights = hp.weight_variables([hidden_layers[2], hidden_layers[3]])
-            biases = hp.bias_variables([hidden_layers[3]])
-            h4 = tf.matmul(h3, weights) + biases
-            h4 = tf.nn.relu(h4)
-        with tf.variable_scope('layer_5'):
-            weights = hp.weight_variables([hidden_layers[3], hidden_layers[4]])
-            biases = hp.bias_variables([hidden_layers[4]])
-            h5 = tf.matmul(h4, weights) + biases
-            h5 = tf.nn.relu(h5)
-        with tf.variable_scope('layer_6'):
-            weights = hp.weight_variables([hidden_layers[4], 3])
-            biases = hp.bias_variables([3])
-            output = tf.matmul(h5, weights) + biases
-        output = tf.nn.dropout(output, keep_prob=keep_prob)
-    return output, tf.train.Saver(keep_checkpoint_every_n_hours=1)
+def train(model, saver):
+    epochs = 1
+    batch_size = 50
+    keep_prob = 0.5
+    train_samples = 10000
+    test_samples = 1000
+    validation_samples = 200
 
-def train(model, saver, train_data, validation_data, test_data):
-    nBatches = int(len(train_data) / batch_size)
-    nSteps = nBatches*epochs
-    batches = [train_data[i*batch_size:(i+1)*batch_size] for i in range(nBatches)]
+    train_set, test_set, validation_set = hp.process_data(train_data_path, test_data_path, validation_data_path,
+                                                          batch_size, img_shape, label_shape)
+
+    n_batches = int(train_samples / batch_size)
+    n_steps = n_batches * epochs
 
     with tf.variable_scope('training'):
-        sqr_dif = tf.reduce_sum(tf.square(model - output_labels), 1)
+        sqr_dif = tf.reduce_sum(tf.square(model - labels_placeholder), 1)
         mse = tf.reduce_mean(sqr_dif, name='mean_squared_error')
         angle_error = tf.reduce_mean(tf.sqrt(sqr_dif), name='mean_angle_error')
         tf.summary.scalar('angle_error', angle_error)
@@ -282,87 +194,52 @@ def train(model, saver, train_data, validation_data, test_data):
         sess.run(tf.global_variables_initializer())
         train_writer = tf.summary.FileWriter(train_path, sess.graph)
 
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(coord=coord)
+        time.sleep(20)  # let the queues fill up a bit initially
+
+        print('Starting training\n')
         start_time = time.time()
         step = 0
-        for epoch in range(1, epochs+1):
+        for epoch in range(1, epochs + 1):
             epoch_angle_error = 0
+            for batch in range(n_batches):
+                left_img, right_img, labels = sess.run(train_set)
 
-            for batch in batches:
-                batch_input, batch_labels = hp.images_to_batch(batch)
-
-                if step % max(int(nSteps/1000), 1) == 0:
+                if step % max(int(n_steps / 1000), 1) == 0:
                     _, a, s = sess.run([optimizer, angle_error, summaries],
-                                       feed_dict={input_data: batch_input,
-                                                  output_labels: batch_labels,
-                                                  keep_prob: 0.5})
+                                       feed_dict={left_img_placeholder: left_img,
+                                                  right_img_placeholder: right_img,
+                                                  labels_placeholder: labels,
+                                                  keep_prob_placeholder: keep_prob})
                     train_writer.add_summary(s, step)
-                    saver.save(sess, os.path.join(train_path, 'model.ckpt'), global_step=step)
-                    hp.log_step(step, nSteps, start_time, a)
+                    hp.log_step(step, n_steps, start_time, a)
                 else:
                     _, a = sess.run([optimizer, angle_error],
-                                    feed_dict={input_data: batch_input,
-                                               output_labels: batch_labels,
-                                               keep_prob: 0.5})
+                                    feed_dict={left_img_placeholder: left_img,
+                                               right_img_placeholder: right_img,
+                                               labels_placeholder: labels,
+                                               keep_prob_placeholder: keep_prob})
 
                 epoch_angle_error += a
                 step += 1
 
-            hp.log_epoch(epoch, epochs, epoch_angle_error/nBatches)
-            val_input, val_labels = hp.images_to_batch(validation_data)
-            val_angle_error = run_scalar_in_batches(sess, angle_error, val_input, val_labels)
+            hp.log_epoch(epoch, epochs, epoch_angle_error / n_batches)
+            val_angle_error = loss_for_queue(sess, angle_error, validation_set, int(validation_samples / 50))
             hp.log_generic(val_angle_error, 'validation')
 
-        test_input, test_labels = hp.images_to_batch(test_data)
-        test_angle_error = run_scalar_in_batches(sess, angle_error, test_input, test_labels)
+        test_angle_error = loss_for_queue(sess, angle_error, test_set, int(test_samples / 50))
         hp.log_generic(test_angle_error, 'test')
         saver.save(sess, os.path.join(train_path, 'model.ckpt'))
 
-        create_embeddings(sess, model, test_input, test_labels, train_path)
+        embeddings_for_queue(sess, model, test_set, int(test_samples / 50), train_path)
 
-def predict(model, saver, data):
-    model_input, _ = hp.images_to_batch(data)
+        coord.request_stop()
+        coord.join(threads)
 
-    with tf.Session() as sess:
-        try:
-            saver.restore(sess, os.path.join(train_path, 'model.ckpt'))
-        except Exception as e:
-            print(str(e))
-
-        attitude = sess.run([model],
-                            feed_dict={input_data: model_input,
-                                       keep_prob: 1.0})
-
-    return attitude
 
 ###############################################################################
 # Main script
 
-# Create the train, validation, and test data lists
-train_data_path = '/Users/Eric/Desktop/train_data'
-valid_data_path = '/Users/Eric/Desktop/validation_data'
-test_data_path = '/Users/Eric/Desktop/test_data'
-pred_data_path = '/Users/Eric/Desktop/prediction_data'
-
-def process_image_files(path):
-    files = os.listdir(path)
-    files = sorted(files, key=lambda file: int(file.split('_')[0]))
-    files = list(filter(lambda file: file.split('_')[1] == 'new', files))
-    files_l = list(filter(lambda file: file.split('_')[-1] == 'l.jpg', files))
-    files_r = list(filter(lambda file: file.split('_')[-1] == 'r.jpg', files))
-    attitude_strings = [file.split('_')[2] for file in files_l]
-    attitudes = [[float(s.split('x')[0]), float(s.split('x')[1]), float(s.split('x')[2])]
-                 for s in attitude_strings]
-    files_l = [os.path.join(path, f) for f in files_l]
-    files_r = [os.path.join(path, f) for f in files_r]
-    return list(zip(files_l, files_r, attitudes))
-
-train_data = process_image_files(train_data_path)
-valid_data = process_image_files(valid_data_path)
-test_data = process_image_files(test_data_path)
-pred_data = process_image_files(pred_data_path)
-
-model, saver = build_model_2()
-train(model, saver, train_data, valid_data, test_data)
-res = predict(model, saver, pred_data)
-print(res)
-
+att_model, att_saver = build_model_conv()
+train(att_model, att_saver)
