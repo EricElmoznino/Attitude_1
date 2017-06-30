@@ -6,6 +6,14 @@ import webbrowser
 from subprocess import Popen, PIPE
 
 
+class Configuration:
+    def __init__(self, train_log_path = './train', epochs=1, batch_size=50, dropout=0.5):
+        self.train_log_path = train_log_path
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.keep_prob = 1-dropout
+
+
 def data_at_path(path):
     files = os.listdir(path)
     files = sorted(files, key=lambda file: int(file.split('_')[0]))
@@ -17,7 +25,7 @@ def data_at_path(path):
                  for s in attitude_strings]
     files_l = [os.path.join(path, f) for f in files_l]
     files_r = [os.path.join(path, f) for f in files_r]
-    return list(zip(files_l, files_r, attitudes))
+    return files_l, files_r, attitudes
 
 
 def image_input_queue(data, img_shape, label_shape, batch_size=50):
@@ -43,12 +51,11 @@ def image_input_queue(data, img_shape, label_shape, batch_size=50):
     right_img.set_shape(img_shape)
     label.set_shape(label_shape)
 
-    min_queue_examples = 256
     input_queue = tf.train.shuffle_batch(
         [left_img, right_img, label],
         batch_size=batch_size,
-        capacity=min_queue_examples + 3 * batch_size,
-        min_after_dequeue=min_queue_examples
+        capacity=20 * batch_size,
+        min_after_dequeue=10 * batch_size
     )
 
     return input_queue
