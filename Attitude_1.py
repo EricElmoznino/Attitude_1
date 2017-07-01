@@ -21,7 +21,7 @@ class Model:
         self.dataset_placeholders, self.datasets, self.iterator = self.create_input_pipeline()
         self.left_images, self.right_images, self.labels = self.iterator.get_next()
         self.model = self.build_model()
-        self.saver = tf.train.Saver(keep_checkpoint_every_n_hours=1)
+        self.saver = tf.train.Saver()
 
     def create_input_pipeline(self):
         left_img_files = tf.placeholder(tf.string, [None])
@@ -134,7 +134,6 @@ class Model:
                     step += 1
 
                 hp.log_epoch(epoch, self.conf.epochs, epoch_angle_error / n_batches)
-                self.saver.save(sess, os.path.join(self.conf.train_log_path, 'model.ckpt'), global_step=step)
                 if validation_path is not None:
                     self.error_for_set(sess, angle_error, validation_path, 'validation')
 
