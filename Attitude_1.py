@@ -81,12 +81,12 @@ class Model:
                 left_units = tf.reshape(self.left_images, [-1, 100*100*3])
                 right_units = tf.reshape(self.right_images, [-1, 100*100*3])
                 units = tf.concat([left_units, right_units], axis=1)
-                weights = hp.weight_variables([100*100*3*2, 1000], mean=0.1)
+                weights = hp.weight_variables([100*100*3*2, 1000])
                 biases = hp.bias_variables([1000])
                 units = tf.add(tf.matmul(units, weights), biases)
                 units = tf.nn.relu(units)
             with tf.variable_scope('output_layer'):
-                weights = hp.weight_variables([1000, 3], mean=0.1)
+                weights = hp.weight_variables([1000, 3])
                 model = tf.matmul(units, weights)
                 model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
         return model
