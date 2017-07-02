@@ -66,12 +66,12 @@ class Model:
                 left_units = tf.reshape(left_units, [-1, 24*24*20])
                 right_units = tf.reshape(right_units, [-1, 24*24*20])
                 units = tf.concat([left_units, right_units], axis=1)
-                weights = hp.weight_variables([2*24*24*20, 10000])
-                biases = hp.bias_variables([10000])
+                weights = hp.weight_variables([2*24*24*20, 5000])
+                biases = hp.bias_variables([5000])
                 units = tf.add(tf.matmul(units, weights), biases)
                 units = tf.nn.relu(units)
             with tf.variable_scope('output_layer'):
-                weights = hp.weight_variables([10000, 3], mean=0.0)
+                weights = hp.weight_variables([5000, 3], mean=0.0)
                 model = tf.matmul(units, weights)
                 model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
         return model
