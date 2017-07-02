@@ -86,7 +86,7 @@ class Model:
                 units = tf.matmul(units, weights) + biases
                 units = tf.nn.relu(units)
             with tf.variable_scope('output_layer'):
-                weights = hp.weight_variables([1000, 3], mean=0.0)
+                weights = hp.weight_variables([1000, 3])
                 model = tf.matmul(units, weights)
                 model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
         return model
