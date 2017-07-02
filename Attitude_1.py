@@ -108,7 +108,8 @@ class Model:
         os.mkdir(self.conf.train_log_path)
 
         print('Starting training\n')
-        config = tf.ConfigProto(device_count={'GPU': 0})
+        config = tf.ConfigProto(device_count={'GPU': 1})
+        config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
             sess.run(tf.global_variables_initializer())
             train_writer = tf.summary.FileWriter(self.conf.train_log_path, sess.graph)
