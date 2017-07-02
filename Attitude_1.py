@@ -83,7 +83,7 @@ class Model:
                 units = tf.concat([left_units, right_units], axis=1)
                 weights = hp.weight_variables([100*100*3*2, 1000])
                 biases = hp.bias_variables([1000])
-                units = tf.matmul(units, weights) + biases
+                units = tf.add(tf.matmul(units, weights), biases)
                 units = tf.nn.relu(units)
             with tf.variable_scope('output_layer'):
                 weights = hp.weight_variables([1000, 3])
