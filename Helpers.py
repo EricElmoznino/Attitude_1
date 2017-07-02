@@ -111,19 +111,24 @@ def bias_variables(shape):
                            initializer=initial)
 
 
-def convolve(model, window, n_inputs, n_outputs, stride=None):
+def convolve(model, window, n_inputs, n_outputs, stride=None, pad=False):
+    if pad: padding = 'SAME'
+    else: padding = 'VALID'
     with tf.variable_scope('convolution'):
-        if stride is None:
-            stride = [1, 1]
+        if stride is None: stride = [1, 1]
         weights = weight_variables(window + [n_inputs] + [n_outputs])
         biases = bias_variables([n_outputs])
         stride = [1] + stride + [1]
-        return tf.nn.conv2d(model, weights, stride, padding='SAME') + biases
+        return tf.nn.conv2d(model, weights, stride, padding=padding) + biases
 
 
-def max_pool(model, pool_size):
-    stride = [1] + pool_size + [1]
-    return tf.nn.max_pool(model, ksize=stride, strides=stride, padding='SAME')
+def max_pool(model, pool_size, stride=None, pad=False):
+    if pad: padding = 'SAME'
+    else: padding = 'VALID'
+    if stride is None: stride = [1] + pool_size + [1]
+    else: stride = [1] + stride + [1]
+    pool_size = [1] + pool_size + [1]
+    return tf.nn.max_pool(model, ksize=pool_size, strides=stride, padding=padding)
 
 
 def open_tensorboard():

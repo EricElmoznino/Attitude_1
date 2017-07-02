@@ -65,11 +65,11 @@ class Model:
                 for filter_size, feature_size in zip(filter_sizes, features_sizes):
                     with tf.variable_scope('convolution_layer_' + str(layer)) as scope:
                         left_units = hp.convolve(left_units, [filter_size, filter_size],
-                                                 left_units.shape[-1], feature_size)
+                                                 left_units.shape[-1], feature_size, pad=True)
                         left_units = tf.nn.relu(left_units)
                         scope.reuse_variables()
                         right_units = hp.convolve(right_units, [filter_size, filter_size],
-                                                  right_units.shape[-1], feature_size)
+                                                  right_units.shape[-1], feature_size, pad=True)
                         right_units = tf.nn.relu(right_units)
                     layer += 1
 
