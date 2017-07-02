@@ -82,7 +82,7 @@ class Model:
             mse = tf.reduce_mean(sqr_dif, name='mean_squared_error')
             angle_error = tf.reduce_mean(tf.sqrt(sqr_dif), name='mean_angle_error')
             tf.summary.scalar('angle_error', angle_error)
-            optimizer = tf.train.AdamOptimizer().minimize(mse)
+            optimizer = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(mse)
 
         summaries = tf.summary.merge_all()
         if os.path.exists(self.conf.train_log_path):
