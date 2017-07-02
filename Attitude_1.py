@@ -80,7 +80,7 @@ class Model:
                 left_units = tf.reshape(self.left_images, [-1, 100*100*3])
                 right_units = tf.reshape(self.right_images, [-1, 100*100*3])
                 units = tf.concat([left_units, right_units], axis=1)
-                weights = hp.weight_variables([100*100*3, 1000])
+                weights = hp.weight_variables([100*100*3*2, 1000])
                 biases = hp.bias_variables([1000])
                 units = tf.add(tf.matmul(units, weights), biases)
                 units = tf.nn.relu(units)
