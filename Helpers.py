@@ -28,55 +28,6 @@ def data_at_path(path):
     return files_l, files_r, attitudes
 
 
-def image_input_queue(data, img_shape, label_shape, batch_size=50):
-    file_paths_left, file_paths_right, labels = list(zip(*data))
-    file_paths_left_t = tf.convert_to_tensor(file_paths_left, dtype=tf.string)
-    file_paths_right_t = tf.convert_to_tensor(file_paths_right, dtype=tf.string)
-    labels_t = tf.convert_to_tensor(labels, dtype=tf.float32)
-
-    input_queue = tf.train.slice_input_producer(
-        [file_paths_left_t, file_paths_right_t, labels_t],
-        shuffle=False)
-    file_content_left = tf.read_file(input_queue[0])
-    file_content_right = tf.read_file(input_queue[1])
-    left_img = tf.image.decode_jpeg(file_content_left, channels=img_shape[2])
-    right_img = tf.image.decode_jpeg(file_content_right, channels=img_shape[2])
-    left_img = tf.cast(left_img, dtype=tf.float32)
-    left_img = left_img / 255
-    right_img = tf.cast(right_img, dtype=tf.float32)
-    right_img = right_img / 255
-    label = input_queue[2]
-
-    left_img.set_shape(img_shape)
-    right_img.set_shape(img_shape)
-    label.set_shape(label_shape)
-
-    input_queue = tf.train.shuffle_batch(
-        [left_img, right_img, label],
-        batch_size=batch_size,
-        capacity=20 * batch_size,
-        min_after_dequeue=10 * batch_size
-    )
-
-    return input_queue
-
-
-def process_data(train_path, test_path, validation_path, batch_size, img_shape, label_shape):
-    train_data = data_at_path(train_path)
-    test_data = data_at_path(test_path)
-    validation_data = data_at_path(validation_path)
-
-    train_queue = image_input_queue(train_data,
-                                    img_shape=img_shape, label_shape=label_shape,
-                                    batch_size=batch_size)
-    test_queue = image_input_queue(test_data,
-                                   img_shape=img_shape, label_shape=label_shape)
-    validation_queue = image_input_queue(validation_data,
-                                         img_shape=img_shape, label_shape=label_shape)
-
-    return train_queue, test_queue, validation_queue
-
-
 def log_step(step, total_steps, start_time, angle_error):
     progress = int(step / float(total_steps) * 100)
 

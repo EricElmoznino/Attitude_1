@@ -24,30 +24,31 @@ class Model:
         self.saver = tf.train.Saver()
 
     def create_input_pipeline(self):
-        left_img_files = tf.placeholder(tf.string, [None])
-        right_img_files = tf.placeholder(tf.string, [None])
-        labels = tf.placeholder(tf.float32, [None] + self.label_shape)
-        placeholders = {'left': left_img_files, 'right': right_img_files, 'labels': labels}
+        with tf.variable_scope('input_pipeline'):
+            left_img_files = tf.placeholder(tf.string, [None])
+            right_img_files = tf.placeholder(tf.string, [None])
+            labels = tf.placeholder(tf.float32, [None] + self.label_shape)
+            placeholders = {'left': left_img_files, 'right': right_img_files, 'labels': labels}
 
-        def process_images(left_img_file, right_img_file, label):
-            left_img_content = tf.read_file(left_img_file)
-            right_img_content = tf.read_file(right_img_file)
-            left_img = tf.image.decode_jpeg(left_img_content, channels=self.image_shape[-1])
-            right_img = tf.image.decode_jpeg(right_img_content, channels=self.image_shape[-1])
-            left_img = tf.divide(tf.cast(left_img, tf.float32), 255)
-            right_img = tf.divide(tf.cast(right_img, tf.float32), 255)
-            left_img.set_shape(self.image_shape)
-            right_img.set_shape(self.image_shape)
-            return left_img, right_img, label
+            def process_images(left_img_file, right_img_file, label):
+                left_img_content = tf.read_file(left_img_file)
+                right_img_content = tf.read_file(right_img_file)
+                left_img = tf.image.decode_jpeg(left_img_content, channels=self.image_shape[-1])
+                right_img = tf.image.decode_jpeg(right_img_content, channels=self.image_shape[-1])
+                left_img = tf.divide(tf.cast(left_img, tf.float32), 255)
+                right_img = tf.divide(tf.cast(right_img, tf.float32), 255)
+                left_img.set_shape(self.image_shape)
+                right_img.set_shape(self.image_shape)
+                return left_img, right_img, label
 
-        dataset = data.Dataset.from_tensor_slices((left_img_files, right_img_files, labels))
-        dataset = dataset.map(process_images)
-        dataset = dataset.repeat()
-        train_set = dataset.batch(self.conf.batch_size)
-        predict_set = dataset.batch(1)
-        datasets = {'train': train_set, 'predict': predict_set}
+            dataset = data.Dataset.from_tensor_slices((left_img_files, right_img_files, labels))
+            dataset = dataset.map(process_images)
+            dataset = dataset.repeat()
+            train_set = dataset.batch(self.conf.batch_size)
+            predict_set = dataset.batch(1)
+            datasets = {'train': train_set, 'predict': predict_set}
 
-        iterator = data.Iterator.from_dataset(train_set)
+            iterator = data.Iterator.from_dataset(train_set)
 
         return placeholders, datasets, iterator
 
@@ -65,12 +66,12 @@ class Model:
                 left_units = tf.reshape(left_units, [-1, 24*24*20])
                 right_units = tf.reshape(right_units, [-1, 24*24*20])
                 units = tf.concat([left_units, right_units], axis=1)
-                weights = hp.weight_variables([2*24*24*20, 1000])
-                biases = hp.bias_variables([1000])
+                weights = hp.weight_variables([2*24*24*20, 10000])
+                biases = hp.bias_variables([10000])
                 units = tf.add(tf.matmul(units, weights), biases)
                 units = tf.nn.relu(units)
             with tf.variable_scope('output_layer'):
-                weights = hp.weight_variables([1000, 3], mean=0.0)
+                weights = hp.weight_variables([10000, 3], mean=0.0)
                 model = tf.matmul(units, weights)
                 model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
         return model
