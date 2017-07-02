@@ -52,8 +52,11 @@ class Model:
         return placeholders, datasets, iterator
 
     def build_model(self):
-        filter_sizes = [10]
-        features_sizes = [15]
+
+        filter_sizes = []
+        feature_sizes = []
+        # filter_sizes = [10]
+        # feature_sizes = [15]
         hidden_sizes = [1000]
 
         with tf.variable_scope('model'):
@@ -62,7 +65,7 @@ class Model:
                 layer = 1
                 left_units = self.left_images
                 right_units = self.right_images
-                for filter_size, feature_size in zip(filter_sizes, features_sizes):
+                for filter_size, feature_size in zip(filter_sizes, feature_sizes):
                     with tf.variable_scope('convolution_layer_' + str(layer)) as scope:
                         left_units = hp.convolve(left_units, [filter_size, filter_size],
                                                  left_units.shape[-1], feature_size, pad=True)
@@ -109,7 +112,6 @@ class Model:
 
         print('Starting training\n')
         config = tf.ConfigProto(device_count={'GPU': 1})
-        config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
             sess.run(tf.global_variables_initializer())
             train_writer = tf.summary.FileWriter(self.conf.train_log_path, sess.graph)
