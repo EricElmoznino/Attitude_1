@@ -53,43 +53,43 @@ class Model:
         return placeholders, datasets, iterator
 
     def build_model(self):
-        # with tf.variable_scope('model'):
-        #     with tf.variable_scope('convolution_layer_1') as scope:
-        #         left_units = hp.convolve(self.left_images, [5, 5], 3, 20, stride=[2, 2])
-        #         left_units = tf.nn.relu(left_units)
-        #         left_units = hp.max_pool(left_units, [2, 2])
-        #         scope.reuse_variables()
-        #         right_units = hp.convolve(self.right_images, [5, 5], 3, 20, stride=[2, 2])
-        #         right_units = tf.nn.relu(right_units)
-        #         right_units = hp.max_pool(right_units, [2, 2])
-        #     with tf.variable_scope('fully_connected_layer_1'):
-        #         left_units = tf.reshape(left_units, [-1, 24*24*20])
-        #         right_units = tf.reshape(right_units, [-1, 24*24*20])
-        #         units = tf.concat([left_units, right_units], axis=1)
-        #         weights = hp.weight_variables([2*24*24*20, 5000])
-        #         biases = hp.bias_variables([5000])
-        #         units = tf.add(tf.matmul(units, weights), biases)
-        #         units = tf.nn.relu(units)
-        #     with tf.variable_scope('output_layer'):
-        #         weights = hp.weight_variables([5000, 3], mean=0.0)
-        #         model = tf.matmul(units, weights)
-        #         model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
-        # return model
-
         with tf.variable_scope('model'):
-            with tf.variable_scope('layer_1'):
-                left_units = tf.reshape(self.left_images, [-1, 100*100*3])
-                right_units = tf.reshape(self.right_images, [-1, 100*100*3])
+            with tf.variable_scope('convolution_layer_1') as scope:
+                left_units = hp.convolve(self.left_images, [5, 5], 3, 20, stride=[2, 2])
+                left_units = tf.nn.relu(left_units)
+                left_units = hp.max_pool(left_units, [2, 2])
+                scope.reuse_variables()
+                right_units = hp.convolve(self.right_images, [5, 5], 3, 20, stride=[2, 2])
+                right_units = tf.nn.relu(right_units)
+                right_units = hp.max_pool(right_units, [2, 2])
+            with tf.variable_scope('fully_connected_layer_1'):
+                left_units = tf.reshape(left_units, [-1, 24*24*20])
+                right_units = tf.reshape(right_units, [-1, 24*24*20])
                 units = tf.concat([left_units, right_units], axis=1)
-                weights = hp.weight_variables([100*100*3*2, 1000])
-                biases = hp.bias_variables([1000])
+                weights = hp.weight_variables([2*24*24*20, 5000])
+                biases = hp.bias_variables([5000])
                 units = tf.add(tf.matmul(units, weights), biases)
                 units = tf.nn.relu(units)
             with tf.variable_scope('output_layer'):
-                weights = hp.weight_variables([1000, 3])
+                weights = hp.weight_variables([5000, 3])
                 model = tf.matmul(units, weights)
                 model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
         return model
+
+        # with tf.variable_scope('model'):
+        #     with tf.variable_scope('layer_1'):
+        #         left_units = tf.reshape(self.left_images, [-1, 100*100*3])
+        #         right_units = tf.reshape(self.right_images, [-1, 100*100*3])
+        #         units = tf.concat([left_units, right_units], axis=1)
+        #         weights = hp.weight_variables([100*100*3*2, 1000])
+        #         biases = hp.bias_variables([1000])
+        #         units = tf.add(tf.matmul(units, weights), biases)
+        #         units = tf.nn.relu(units)
+        #     with tf.variable_scope('output_layer'):
+        #         weights = hp.weight_variables([1000, 3])
+        #         model = tf.matmul(units, weights)
+        #         model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
+        # return model
 
     def train(self, train_path, validation_path = None, test_path = None):
         with tf.variable_scope('training'):
