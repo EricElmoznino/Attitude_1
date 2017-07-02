@@ -91,48 +91,6 @@ class Model:
                 model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
         return model
 
-        # filter_sizes = []
-        # features_sizes = []
-        # hidden_sizes = [1000]
-
-        # with tf.variable_scope('model'):
-        #
-        #     with tf.variable_scope('convolution'):
-        #         layer = 1
-        #         left_units = self.left_images
-        #         right_units = self.right_images
-        #         for filter_size, feature_size in zip(filter_sizes, features_sizes):
-        #             with tf.variable_scope('convolution_layer_' + str(layer)) as scope:
-        #                 left_units = hp.convolve(left_units, [filter_size, filter_size],
-        #                                          left_units.shape[-1], feature_size, pad=True)
-        #                 left_units = tf.nn.relu(left_units)
-        #                 scope.reuse_variables()
-        #                 right_units = hp.convolve(right_units, [filter_size, filter_size],
-        #                                           right_units.shape[-1], feature_size, pad=True)
-        #                 right_units = tf.nn.relu(right_units)
-        #             layer += 1
-        #
-        #     with tf.variable_scope('fully_connected'):
-        #         layer = 1
-        #         num_units = left_units.shape[1] * left_units.shape[2] * left_units.shape[3]
-        #         left_units = tf.reshape(left_units, [-1, int(num_units)])
-        #         right_units = tf.reshape(right_units, [-1, int(num_units)])
-        #         hidden_units = tf.concat([left_units, right_units], axis=1)
-        #         for hidden_size in hidden_sizes:
-        #             with tf.variable_scope('hidden_layer_' + str(layer)):
-        #                 weights = hp.weight_variables([hidden_units.shape[1], hidden_size])
-        #                 biases = hp.bias_variables([hidden_size])
-        #                 hidden_units = tf.matmul(hidden_units, weights) + biases
-        #                 hidden_units = tf.nn.relu(hidden_units)
-        #             layer += 1
-        #
-        #     with tf.variable_scope('output'):
-        #         weights = hp.weight_variables([hidden_units.shape[1], 3])
-        #         model = tf.matmul(hidden_units, weights)
-        #         model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
-        #
-        # return model
-
     def train(self, train_path, validation_path = None, test_path = None):
         with tf.variable_scope('training'):
             sqr_dif = tf.reduce_sum(tf.square(self.model - self.labels), 1)
