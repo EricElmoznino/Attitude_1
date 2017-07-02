@@ -52,11 +52,8 @@ class Model:
         return placeholders, datasets, iterator
 
     def build_model(self):
-
-        filter_sizes = []
-        feature_sizes = []
-        # filter_sizes = [10]
-        # feature_sizes = [15]
+        filter_sizes = [10]
+        feature_sizes = [15]
         hidden_sizes = [1000]
 
         with tf.variable_scope('model'):
