@@ -27,11 +27,9 @@ def data_at_path(path):
 
 def log_step(step, total_steps, start_time, angle_error):
     progress = int(step / float(total_steps) * 100)
-
     seconds = time.time() - start_time
     m, s = divmod(seconds, 60)
     h, m = divmod(m, 60)
-
     print(str(progress) + '%\t|\t',
           int(h), 'hours,', int(m), 'minutes,', int(s), 'seconds\t|\t',
           'Step:', step, '/', total_steps, '\t|\t',
