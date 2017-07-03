@@ -49,26 +49,19 @@ class Model:
         return placeholders, datasets, iterator
 
     def build_model(self):
-        # with tf.variable_scope('model'):
-        #     with tf.variable_scope('convolution_layer_1'):
-        #         model = hp.convolve(self.inputs, [5, 5], 3, 20, stride=[2, 2])
-        #         model = tf.nn.relu(model)
-        #         model = hp.max_pool(model, [2, 2])
-        #     with tf.variable_scope('fully_connected_layer_1'):
-        #         model = tf.reshape(model, [-1, 24 * 24 * 20])
-        #         weights = hp.weight_variables([24 * 24 * 20, 5000])
-        #         biases = hp.bias_variables([5000])
-        #         model = tf.add(tf.matmul(model, weights), biases)
-        #         model = tf.nn.relu(model)
-        #     with tf.variable_scope('output_layer'):
-        #         weights = hp.weight_variables([5000] + self.label_shape)
-        #         model = tf.matmul(model, weights)
-        #         model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
-        # return model
         with tf.variable_scope('model'):
+            with tf.variable_scope('convolution_layer_1'):
+                model = hp.convolve(self.inputs, [5, 5], 3, 20, stride=[2, 2])
+                model = tf.nn.relu(model)
+                model = hp.max_pool(model, [2, 2])
+            with tf.variable_scope('fully_connected_layer_1'):
+                model = tf.reshape(model, [-1, 24 * 24 * 20])
+                weights = hp.weight_variables([24 * 24 * 20, 5000])
+                biases = hp.bias_variables([5000])
+                model = tf.add(tf.matmul(model, weights), biases)
+                model = tf.nn.relu(model)
             with tf.variable_scope('output_layer'):
-                model = tf.reshape(self.inputs, [-1, 100*100*3])
-                weights = hp.weight_variables([100*100*3] + self.label_shape)
+                weights = hp.weight_variables([5000] + self.label_shape)
                 model = tf.matmul(model, weights)
                 model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
         return model
