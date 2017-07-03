@@ -6,7 +6,7 @@ from subprocess import Popen, PIPE
 
 
 class Configuration:
-    def __init__(self, train_log_path = './train', epochs=1, batch_size=50, dropout=0.75):
+    def __init__(self, train_log_path = './train', epochs=1, batch_size=50, dropout=0.25):
         self.train_log_path = train_log_path
         self.epochs = epochs
         self.batch_size = batch_size
