@@ -14,6 +14,7 @@ class Model:
 
         self.input_shape = [image_width, image_height, 3]
         self.label_shape = [3]
+        # self.label_shape = [1]
 
         with tf.variable_scope('hyperparameters'):
             self.keep_prob_placeholder = tf.placeholder(tf.float32, name='dropout_keep_probability')
@@ -60,7 +61,7 @@ class Model:
                 model = tf.add(tf.matmul(model, weights), biases)
                 model = tf.nn.relu(model)
             with tf.variable_scope('output_layer'):
-                weights = hp.weight_variables([5000, 3])
+                weights = hp.weight_variables([5000] + self.label_shape)
                 model = tf.matmul(model, weights)
                 model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
         return model
@@ -121,7 +122,7 @@ class Model:
                 print(str(e))
 
             n_samples = self.initialize_iterator_with_set(sess, prediction_path, 'predict')
-            predictions = np.ndarray([0, 3])
+            predictions = np.ndarray([0] + self.label_shape)
             for _ in range(n_samples):
                 prediction = sess.run(self.model, feed_dict={self.keep_prob_placeholder: 1.0})
                 predictions = np.concatenate([predictions, prediction])
