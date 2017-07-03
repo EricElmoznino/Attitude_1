@@ -13,8 +13,7 @@ class Model:
         self.conf = configuration
 
         self.input_shape = [image_width, image_height, 3]
-        # self.label_shape = [3]
-        self.label_shape = [2]
+        self.label_shape = [3]
 
         with tf.variable_scope('hyperparameters'):
             self.keep_prob_placeholder = tf.placeholder(tf.float32, name='dropout_keep_probability')
