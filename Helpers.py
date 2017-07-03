@@ -76,8 +76,8 @@ def max_pool(model, pool_size, stride=None, pad=False):
     return tf.nn.max_pool(model, ksize=pool_size, strides=stride, padding=padding)
 
 
-def open_tensorboard():
-    tensorboard = Popen(['tensorboard', '--logdir=~/Dropbox/Programming/Python/Attitude_1/train'],
+def open_tensorboard(train_log_path):
+    tensorboard = Popen(['tensorboard', '--logdir=' + train_log_path],
                         stdout=PIPE, stderr=PIPE)
     time.sleep(5)
     webbrowser.open('http://0.0.0.0:6006')
