@@ -80,7 +80,7 @@ class Model:
         os.mkdir(self.conf.train_log_path)
 
         print('Starting training\n')
-        with tf.Session(config=tf.ConfigProto(device_count={'GPU': 0})) as sess:
+        with tf.Session(config=tf.ConfigProto(device_count={'GPU': 1})) as sess:
             sess.run(tf.global_variables_initializer())
             train_writer = tf.summary.FileWriter(self.conf.train_log_path, sess.graph)
 
