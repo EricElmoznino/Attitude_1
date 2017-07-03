@@ -13,8 +13,8 @@ class Model:
         self.conf = configuration
 
         self.input_shape = [image_width, image_height, 3]
-        self.label_shape = [3]
-        # self.label_shape = [1]
+        # self.label_shape = [3]
+        self.label_shape = [1]
 
         with tf.variable_scope('hyperparameters'):
             self.keep_prob_placeholder = tf.placeholder(tf.float32, name='dropout_keep_probability')
@@ -80,7 +80,7 @@ class Model:
         os.mkdir(self.conf.train_log_path)
 
         print('Starting training\n')
-        with tf.Session(config=tf.ConfigProto(device_count={'GPU': 1})) as sess:
+        with tf.Session() as sess:
             sess.run(tf.global_variables_initializer())
             train_writer = tf.summary.FileWriter(self.conf.train_log_path, sess.graph)
 
@@ -112,7 +112,7 @@ class Model:
             self.saver.save(sess, os.path.join(self.conf.train_log_path, 'model.ckpt'))
             if test_path is not None:
                 self.error_for_set(sess, angle_error, test_path, 'test')
-                self.embeddings_for_set(sess, test_path)
+                # self.embeddings_for_set(sess, test_path)
 
     def predict(self, prediction_path):
         with tf.Session() as sess:

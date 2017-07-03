@@ -18,9 +18,9 @@ def data_at_path(path):
     files = sorted(files, key=lambda file: int(file.split('_')[0]))
     files = list(filter(lambda file: file.split('_')[1] == 'new', files))
     attitude_strings = [file.split('_')[2] for file in files]
-    attitudes = [[float(s.split('x')[0]), float(s.split('x')[1]), float(s.split('x')[2])]
-                 for s in attitude_strings]
-    # attitudes = [[float(s)] for s in attitude_strings]
+    # attitudes = [[float(s.split('x')[0]), float(s.split('x')[1]), float(s.split('x')[2])]
+    #              for s in attitude_strings]
+    attitudes = [[float(s)] for s in attitude_strings]
     files = [os.path.join(path, f) for f in files]
     return files, attitudes
 
