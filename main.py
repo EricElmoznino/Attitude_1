@@ -1,7 +1,7 @@
 import Attitude_1
 import Helpers
 
-att_model = Attitude_1.Model(Helpers.Configuration(epochs=40, batch_size=10, dropout=0.0), 100, 100)
+att_model = Attitude_1.Model(Helpers.Configuration(epochs=40), 100, 100)
 # att_model.train('/Users/Eric/ML_data/Attitude_1/data_pitch/train_data',
 #                 '/Users/Eric/ML_data/Attitude_1/data_pitch/validation_data',
 #                 '/Users/Eric/ML_data/Attitude_1/data_pitch/test_data')

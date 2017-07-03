@@ -6,7 +6,7 @@ from subprocess import Popen, PIPE
 
 
 class Configuration:
-    def __init__(self, train_log_path = './train', epochs=1, batch_size=50, dropout=0.25):
+    def __init__(self, train_log_path = './train', epochs=10, batch_size=10, dropout=0.0):
         self.train_log_path = train_log_path
         self.epochs = epochs
         self.batch_size = batch_size
@@ -45,7 +45,7 @@ def log_generic(angle_error, set_name):
 
 
 def weight_variables(shape):
-    initial = tf.truncated_normal_initializer()
+    initial = tf.truncated_normal_initializer(stddev=0.1)
     return tf.get_variable('weights', shape=shape,
                            initializer=initial)
 
