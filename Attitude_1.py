@@ -192,9 +192,9 @@ class Model:
         embed_saver = tf.train.Saver([embedding_var])
         embed_saver.save(sess, os.path.join(self.conf.train_log_path, 'embeddding.ckpt'))
 
-    def initialize_iterator_with_set(self, sess, path, type):
+    def initialize_iterator_with_set(self, sess, path, set_type):
         files_left, files_right, labels = hp.data_at_path(path)
-        init = self.iterator.make_initializer(self.datasets[type])
+        init = self.iterator.make_initializer(self.datasets[set_type])
         sess.run(init,
                  feed_dict={self.dataset_placeholders['left']: files_left,
                             self.dataset_placeholders['right']: files_right,
