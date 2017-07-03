@@ -7,41 +7,36 @@ import shutil
 import os
 import time
 
-class Model:
 
+class Model:
     def __init__(self, configuration, image_width, image_height):
         self.conf = configuration
 
-        self.image_shape = [image_width, image_height, 3]
+        self.input_shape = [image_width, image_height, 3]
         self.label_shape = [3]
 
         with tf.variable_scope('hyperparameters'):
             self.keep_prob_placeholder = tf.placeholder(tf.float32, name='dropout_keep_probability')
 
         self.dataset_placeholders, self.datasets, self.iterator = self.create_input_pipeline()
-        self.left_images, self.right_images, self.labels = self.iterator.get_next()
+        self.inputs, self.labels = self.iterator.get_next()
         self.model = self.build_model()
         self.saver = tf.train.Saver()
 
     def create_input_pipeline(self):
         with tf.variable_scope('input_pipeline'):
-            left_img_files = tf.placeholder(tf.string, [None])
-            right_img_files = tf.placeholder(tf.string, [None])
+            inputs = tf.placeholder(tf.string, [None])
             labels = tf.placeholder(tf.float32, [None] + self.label_shape)
-            placeholders = {'left': left_img_files, 'right': right_img_files, 'labels': labels}
+            placeholders = {'inputs': inputs, 'labels': labels}
 
-            def process_images(left_img_file, right_img_file, label):
-                left_img_content = tf.read_file(left_img_file)
-                right_img_content = tf.read_file(right_img_file)
-                left_img = tf.image.decode_jpeg(left_img_content, channels=self.image_shape[-1])
-                right_img = tf.image.decode_jpeg(right_img_content, channels=self.image_shape[-1])
-                left_img = tf.divide(tf.cast(left_img, tf.float32), 255)
-                right_img = tf.divide(tf.cast(right_img, tf.float32), 255)
-                left_img.set_shape(self.image_shape)
-                right_img.set_shape(self.image_shape)
-                return left_img, right_img, label
+            def process_images(img_file, label):
+                img_content = tf.read_file(img_file)
+                img = tf.image.decode_jpeg(img_content, channels=self.input_shape[-1])
+                img = tf.divide(tf.cast(img, tf.float32), 255)
+                img.set_shape(self.input_shape)
+                return img, label
 
-            dataset = data.Dataset.from_tensor_slices((left_img_files, right_img_files, labels))
+            dataset = data.Dataset.from_tensor_slices((inputs, labels))
             dataset = dataset.map(process_images)
             dataset = dataset.repeat()
             train_set = dataset.batch(self.conf.batch_size)
@@ -54,44 +49,23 @@ class Model:
 
     def build_model(self):
         with tf.variable_scope('model'):
-            with tf.variable_scope('convolution_layer_1') as scope:
-                left_units = hp.convolve(self.left_images, [5, 5], 3, 20, stride=[2, 2])
-                left_units = tf.nn.relu(left_units)
-                left_units = hp.max_pool(left_units, [2, 2])
-                scope.reuse_variables()
-                right_units = hp.convolve(self.right_images, [5, 5], 3, 20, stride=[2, 2])
-                right_units = tf.nn.relu(right_units)
-                right_units = hp.max_pool(right_units, [2, 2])
+            with tf.variable_scope('convolution_layer_1'):
+                model = hp.convolve(self.inputs, [5, 5], 3, 20, stride=[2, 2])
+                model = tf.nn.relu(model)
+                model = hp.max_pool(model, [2, 2])
             with tf.variable_scope('fully_connected_layer_1'):
-                left_units = tf.reshape(left_units, [-1, 24*24*20])
-                right_units = tf.reshape(right_units, [-1, 24*24*20])
-                units = tf.concat([left_units, right_units], axis=1)
-                weights = hp.weight_variables([2*24*24*20, 5000])
+                model = tf.reshape(model, [-1, 24 * 24 * 20])
+                weights = hp.weight_variables([24 * 24 * 20, 5000])
                 biases = hp.bias_variables([5000])
-                units = tf.add(tf.matmul(units, weights), biases)
-                units = tf.nn.relu(units)
+                model = tf.add(tf.matmul(model, weights), biases)
+                model = tf.nn.relu(model)
             with tf.variable_scope('output_layer'):
                 weights = hp.weight_variables([5000, 3])
-                model = tf.matmul(units, weights)
+                model = tf.matmul(model, weights)
                 model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
         return model
 
-        # with tf.variable_scope('model'):
-        #     with tf.variable_scope('layer_1'):
-        #         left_units = tf.reshape(self.left_images, [-1, 100*100*3])
-        #         right_units = tf.reshape(self.right_images, [-1, 100*100*3])
-        #         units = tf.concat([left_units, right_units], axis=1)
-        #         weights = hp.weight_variables([100*100*3*2, 1000])
-        #         biases = hp.bias_variables([1000])
-        #         units = tf.add(tf.matmul(units, weights), biases)
-        #         units = tf.nn.relu(units)
-        #     with tf.variable_scope('output_layer'):
-        #         weights = hp.weight_variables([1000, 3])
-        #         model = tf.matmul(units, weights)
-        #         model = tf.nn.dropout(model, keep_prob=self.keep_prob_placeholder)
-        # return model
-
-    def train(self, train_path, validation_path = None, test_path = None):
+    def train(self, train_path, validation_path=None, test_path=None):
         with tf.variable_scope('training'):
             sqr_dif = tf.reduce_sum(tf.square(self.model - self.labels), 1)
             mse = tf.reduce_mean(sqr_dif, name='mean_squared_error')
@@ -105,7 +79,7 @@ class Model:
         os.mkdir(self.conf.train_log_path)
 
         print('Starting training\n')
-        with tf.Session(config=tf.ConfigProto(device_count={'GPU': 1})) as sess:
+        with tf.Session(config=tf.ConfigProto(device_count={'GPU': 0})) as sess:
             sess.run(tf.global_variables_initializer())
             train_writer = tf.summary.FileWriter(self.conf.train_log_path, sess.graph)
 
@@ -193,12 +167,9 @@ class Model:
         embed_saver.save(sess, os.path.join(self.conf.train_log_path, 'embeddding.ckpt'))
 
     def initialize_iterator_with_set(self, sess, path, set_type):
-        files_left, files_right, labels = hp.data_at_path(path)
+        inputs, labels = hp.data_at_path(path)
         init = self.iterator.make_initializer(self.datasets[set_type])
         sess.run(init,
-                 feed_dict={self.dataset_placeholders['left']: files_left,
-                            self.dataset_placeholders['right']: files_right,
+                 feed_dict={self.dataset_placeholders['inputs']: inputs,
                             self.dataset_placeholders['labels']: labels})
-        return len(files_left)
-
-
+        return len(inputs)

@@ -18,14 +18,11 @@ def data_at_path(path):
     files = os.listdir(path)
     files = sorted(files, key=lambda file: int(file.split('_')[0]))
     files = list(filter(lambda file: file.split('_')[1] == 'new', files))
-    files_l = list(filter(lambda file: file.split('_')[-1] == 'l.jpg', files))
-    files_r = list(filter(lambda file: file.split('_')[-1] == 'r.jpg', files))
-    attitude_strings = [file.split('_')[2] for file in files_l]
+    attitude_strings = [file.split('_')[2] for file in files]
     attitudes = [[float(s.split('x')[0]), float(s.split('x')[1]), float(s.split('x')[2])]
                  for s in attitude_strings]
-    files_l = [os.path.join(path, f) for f in files_l]
-    files_r = [os.path.join(path, f) for f in files_r]
-    return files_l, files_r, attitudes
+    files = [os.path.join(path, f) for f in files]
+    return files, attitudes
 
 
 def log_step(step, total_steps, start_time, angle_error):
