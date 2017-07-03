@@ -48,7 +48,7 @@ def log_generic(angle_error, set_name):
 
 
 def weight_variables(shape):
-    initial = tf.truncated_normal_initializer(stddev=0.1)
+    initial = tf.truncated_normal_initializer(stddev=0.35)
     return tf.get_variable('weights', shape=shape,
                            initializer=initial)
 
